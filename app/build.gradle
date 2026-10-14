@@ -187,6 +187,14 @@ def downloadBootstrap(String arch, String expectedChecksum, String version) {
         }
     }
 
+    // Upstream bootstrap archives are compiled for /data/data/com.termux/files/usr.
+    // Fail closed rather than produce a renamed APK with an unusable shell.
+    def manifestPackage = android.defaultConfig.manifestPlaceholders.TERMUX_PACKAGE_NAME
+    if (manifestPackage != "com.termux") {
+        throw new GradleException("FayTermux requires custom bootstrap archives built for " +
+            manifestPackage + "; refusing to download the stock com.termux bootstrap.")
+    }
+
     def remoteUrl = "https://github.com/termux/termux-packages/releases/download/bootstrap-" + version + "/bootstrap-" + arch + ".zip"
     logger.quiet("Downloading " + remoteUrl + " ...")
 
