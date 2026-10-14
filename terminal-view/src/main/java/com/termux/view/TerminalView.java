@@ -1041,7 +1041,7 @@ public final class TerminalView extends View {
             canvas.drawRect(0, 0, getWidth(), getHeight(), overlay);
         }
         if (mEmulator == null) {
-            canvas.drawColor(0XFF000000);
+            if (mFayWallpaper == null) canvas.drawColor(0XFF000000);
         } else {
             // render the terminal view and highlight any selected text
             int[] sel = mDefaultSelectors;
