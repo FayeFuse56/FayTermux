@@ -54,6 +54,17 @@ public final class TerminalView extends View {
     public TerminalEmulator mEmulator;
 
     public TerminalRenderer mRenderer;
+    /** Optional image wallpaper drawn behind terminal glyphs. */
+    private android.graphics.Bitmap mFayWallpaper;
+    private int mFayWallpaperDimPercent = 45;
+    private final android.graphics.Paint mFayWallpaperPaint = new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
+
+    public void setFayWallpaper(@Nullable android.graphics.Bitmap bitmap, int dimPercent) {
+        mFayWallpaper = bitmap;
+        mFayWallpaperDimPercent = Math.max(0, Math.min(100, dimPercent));
+        invalidate();
+    }
+
 
     public TerminalViewClient mClient;
 
@@ -1020,8 +1031,17 @@ public final class TerminalView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
+        if (mFayWallpaper != null) {
+            canvas.drawColor(android.graphics.Color.BLACK);
+            canvas.drawBitmap(mFayWallpaper, null,
+                new android.graphics.Rect(0, 0, getWidth(), getHeight()), mFayWallpaperPaint);
+            android.graphics.Paint overlay = new android.graphics.Paint();
+            overlay.setColor(android.graphics.Color.argb(
+                Math.round(255f * mFayWallpaperDimPercent / 100f), 0, 0, 0));
+            canvas.drawRect(0, 0, getWidth(), getHeight(), overlay);
+        }
         if (mEmulator == null) {
-            canvas.drawColor(0XFF000000);
+            if (mFayWallpaper == null) canvas.drawColor(0XFF000000);
         } else {
             // render the terminal view and highlight any selected text
             int[] sel = mDefaultSelectors;

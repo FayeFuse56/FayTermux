@@ -1,6 +1,15 @@
 package com.termux.app.activities;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.widget.SeekBar;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.app.AlertDialog;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import com.termux.app.fay.FayAppearancePreferences;
 import android.os.Bundle;
 import android.os.Environment;
 
@@ -53,12 +62,78 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     public static class RootPreferencesFragment extends PreferenceFragmentCompat {
+        private final ActivityResultLauncher<Intent> fayImagePicker =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null) return;
+                Intent data = result.getData();
+                Uri uri = data.getData();
+                if (uri == null || getContext() == null) return;
+                try {
+                    requireContext().getContentResolver().takePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    FayAppearancePreferences.setBackgroundImage(requireContext(), uri);
+                    FayAppearancePreferences.setEnabled(requireContext(), true);
+                } catch (SecurityException ex) {
+                    new AlertDialog.Builder(requireContext())
+                        .setMessage("Cannot retain access to the selected image. Please try another image.")
+                        .setPositiveButton(android.R.string.ok, null).show();
+                }
+            });
+
+        private void showFayAppearanceDialog() {
+            Context context = getContext();
+            if (context == null) return;
+            LinearLayout layout = new LinearLayout(context);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            int pad = (int) (20 * getResources().getDisplayMetrics().density);
+            layout.setPadding(pad, pad, pad, pad);
+            TextView label = new TextView(context);
+            SeekBar dim = new SeekBar(context);
+            dim.setMax(100);
+            dim.setProgress(FayAppearancePreferences.getDimPercent(context));
+            label.setText("Background dim: " + dim.getProgress() + "%");
+            dim.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override public void onProgressChanged(SeekBar bar, int value, boolean fromUser) {
+                    label.setText("Background dim: " + value + "%");
+                }
+                @Override public void onStartTrackingTouch(SeekBar bar) {}
+                @Override public void onStopTrackingTouch(SeekBar bar) {}
+            });
+            layout.addView(label);
+            layout.addView(dim);
+            new AlertDialog.Builder(context)
+                .setTitle("FayTermux appearance (preview)")
+                .setMessage("Settings are saved. Wallpaper rendering is not yet enabled.")
+                .setView(layout)
+                .setPositiveButton("Save", (dialog, which) ->
+                    FayAppearancePreferences.setDimPercent(context, dim.getProgress()))
+                .setNeutralButton("Choose image", (dialog, which) -> {
+                    FayAppearancePreferences.setDimPercent(context, dim.getProgress());
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.setType("image/*");
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                    fayImagePicker.launch(intent);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+        }
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             Context context = getContext();
             if (context == null) return;
 
             setPreferencesFromResource(R.xml.root_preferences, rootKey);
+            Preference fayAppearance = new Preference(context);
+            fayAppearance.setTitle("FayTermux appearance");
+            fayAppearance.setSummary("Choose wallpaper and dimming (renderer pending)");
+            fayAppearance.setOnPreferenceClickListener(preference -> {
+                showFayAppearanceDialog();
+                return true;
+            });
+            getPreferenceScreen().addPreference(fayAppearance);
+
 
             new Thread() {
                 @Override

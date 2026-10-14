@@ -10,6 +10,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.net.Uri;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import com.termux.app.fay.FayAppearancePreferences;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.ContextMenu;
@@ -301,9 +304,49 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         registerTermuxActivityBroadcastReceiver();
     }
 
+    private void refreshFayWallpaper() {
+        if (mTerminalView == null) return;
+        if (!FayAppearancePreferences.isEnabled(this)) {
+            mTerminalView.setFayWallpaper(null, 0);
+            return;
+        }
+        Uri uri = FayAppearancePreferences.getBackgroundImage(this);
+        if (uri == null) {
+            mTerminalView.setFayWallpaper(null, 0);
+            return;
+        }
+        final int dim = FayAppearancePreferences.getDimPercent(this);
+        final android.content.Context context = getApplicationContext();
+        new Thread(() -> {
+            Bitmap bitmap = null;
+            try {
+                BitmapFactory.Options bounds = new BitmapFactory.Options();
+                bounds.inJustDecodeBounds = true;
+                try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
+                    if (in != null) BitmapFactory.decodeStream(in, null, bounds);
+                }
+                int sample = 1;
+                while (bounds.outWidth / sample > 1440 || bounds.outHeight / sample > 2560) sample *= 2;
+                BitmapFactory.Options opts = new BitmapFactory.Options();
+                opts.inSampleSize = sample;
+                try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
+                    if (in != null) bitmap = BitmapFactory.decodeStream(in, null, opts);
+                }
+            } catch (Exception ignored) {
+                // Revoked URI permissions or unsupported image formats must not crash the terminal.
+            }
+            final Bitmap result = bitmap;
+            runOnUiThread(() -> {
+                if (!isFinishing() && !isDestroyed() && mTerminalView != null)
+                    mTerminalView.setFayWallpaper(result, dim);
+            });
+        }, "fay-wallpaper-loader").start();
+    }
+
     @Override
     public void onResume() {
         super.onResume();
+        refreshFayWallpaper();
 
         Logger.logVerbose(LOG_TAG, "onResume");
 
