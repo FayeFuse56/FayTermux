@@ -304,7 +304,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         registerTermuxActivityBroadcastReceiver();
     }
 
-    @Override
     private void refreshFayWallpaper() {
         if (mTerminalView == null) return;
         if (!FayAppearancePreferences.isEnabled(this)) {
@@ -344,6 +343,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }, "fay-wallpaper-loader").start();
     }
 
+    @Override
     public void onResume() {
         super.onResume();
         refreshFayWallpaper();
